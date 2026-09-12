@@ -156,7 +156,10 @@ const cat: Command = {
   name: 'cat',
   blurb: 'read what is written inside something',
   metaphor: 'reading',
-  unlockedAt: 5,
+  // Stage 2, not 5. The brief's own opening mission reads a file straight
+  // away, and a message you found but cannot open is a much better hook than
+  // one you have to wait three stages for. Stage 5 then covers *writing*.
+  unlockedAt: 2,
   async run(argv, ctx) {
     if (argv.length === 0) needsAnArgument('cat', 'the name of something to read');
     if (argv.length > 1) tooManyArguments('cat');

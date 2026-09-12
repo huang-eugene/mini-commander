@@ -47,7 +47,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run build:test && node --test \"build/test/**/*.test.js\"",
     "test:update": "npm run build:test && node scripts/update-transcripts.mjs",
-    "selfcheck": "npm run build && node dist/cli.js --self-check",
+    "selfcheck": "npm run build && node bin/mini-commander.js --self-check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepublishOnly": "npm run build && npm run test"

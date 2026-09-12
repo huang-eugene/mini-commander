@@ -39,8 +39,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Via the bin shim, not dist/cli.js: cli.js only *exports* main, so
+      # running it directly exits 0 without playing anything — a self-check
+      # that silently passes is worse than none.
       - name: Self-check (boots a temp world and plays a scripted mission)
-        run: node dist/cli.js --self-check
+        run: node bin/mini-commander.js --self-check
 
       - name: Pack
         run: npm pack --dry-run

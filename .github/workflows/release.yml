@@ -22,7 +22,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: node dist/cli.js --self-check
+      - run: node bin/mini-commander.js --self-check
 
       # Requires an NPM_TOKEN repository secret with publish rights.
       - run: npm publish --provenance --access public
