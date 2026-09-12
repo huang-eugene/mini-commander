@@ -15,7 +15,6 @@ export type ConceptId =
   // stage 2 — looking around
   | 'pwd.where'
   | 'ls.look'
-  | 'ls.read-output'
   // stage 3 — moving around
   | 'cat.read'
   | 'cd.into'
@@ -62,13 +61,11 @@ export const CONCEPTS: readonly Concept[] = [
   },
 
   { id: 'pwd.where', stage: 2, command: 'pwd', metaphor: 'asking which room we are in', needs: [] },
+  // Reading the list and running the command are deliberately one concept.
+  // Splitting them looked tidy, but nothing could teach "read the output"
+  // separately without inventing a step that does not exist in the child's
+  // experience — at this age, looking around *is* reading what you see.
   { id: 'ls.look', stage: 2, command: 'ls', metaphor: 'looking around a room', needs: [] },
-  {
-    id: 'ls.read-output',
-    stage: 2,
-    metaphor: 'reading a list of what is in a room',
-    needs: ['ls.look'],
-  },
 
   {
     id: 'cat.read',

@@ -14,8 +14,13 @@ import type { ErrorCode } from '../shell/errors.js';
 export type ShellEvent =
   /** A command ran to completion. `ok` is false when it printed an error. */
   | { kind: 'command'; name: string; argv: string[]; raw: string; ok: boolean }
-  /** Typed something that is not a command at all. */
-  | { kind: 'unknown-command'; typed: string; nearest?: string }
+  /**
+   * Typed something that is not a command at all. `explained` is set when
+   * the dispatcher has already said something specific about it (a
+   * deliberately-absent command like `sudo`), so that nothing downstream
+   * adds a generic line on top and CHIP says it twice.
+   */
+  | { kind: 'unknown-command'; typed: string; nearest?: string; explained?: boolean }
   /** A command failed. The child has already seen the real error text. */
   | { kind: 'error'; command: string; code: ErrorCode; message: string }
   /** Typed a character the little language does not have. */

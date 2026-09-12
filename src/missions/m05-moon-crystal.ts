@@ -23,7 +23,7 @@ export const m05: Mission = {
   minutes: [10, 15],
 
   teaches: [],
-  requires: ['cd.into', 'cd.up', 'ls.look', 'cat.read'],
+  requires: ['cd.into', 'cd.up', 'ls.look', 'cat.read', 'echo.say'],
 
   hook: [
     'Explorer. Serious problem.',
@@ -109,6 +109,11 @@ export const m05: Mission = {
       done: readSomethingSaying('MOON CRYSTAL'),
       solution: 'cat lab/cupboard/moon-crystal.txt',
 
+      // Rung 5 sends them to the lab rather than naming the file. On a
+      // searching mission, handing over the full path would skip the only
+      // thing the mission is teaching.
+      revealIsPartial: true,
+
       hints: {
         ask: 'Where have you not looked yet?',
         concept: 'Some rooms have more rooms inside them. Did you go all the way in?',
@@ -138,6 +143,40 @@ export const m05: Mission = {
         'In a cupboard. In the lab. Where I put it.',
         'You searched three rooms and I only searched my own memory.',
       ],
+    },
+
+    {
+      // `echo` was taught in mission 1 and would otherwise never come back.
+      // Rather than drilling it, it returns here as the celebration itself —
+      // same command, completely different purpose, four sessions later.
+      id: 'announce-it',
+      concepts: ['echo.say'],
+
+      prompt: {
+        guided: [
+          'One more thing. Everyone should know about this.',
+          'Remember the word that makes the computer say things?',
+          'Use it to announce what you found.',
+        ],
+        prompted: ['Announce it! Make the computer say what you found.'],
+        open: ['Tell the world.'],
+      },
+
+      done: (event) => event.kind === 'said' && event.text.trim().length > 0,
+      solution: 'echo I FOUND THE MOON CRYSTAL',
+
+      hints: {
+        ask: 'It was the very first word you ever taught me. Do you remember?',
+        concept: 'It makes the computer repeat whatever you put after it.',
+        firstLetter: 'It starts with e.',
+        choice: { line: 'Which one talks?', options: ['echo', 'cat'] },
+        reveal: {
+          line: 'echo, then anything you like.',
+          command: 'echo I FOUND THE MOON CRYSTAL',
+        },
+      },
+
+      success: ['THE WHOLE COMPUTER HEARD THAT.', 'You remembered that from your very first day.'],
     },
   ],
 

@@ -327,14 +327,16 @@ export function findCommand(name: string, stage: number): Command | undefined {
  * word from CHIP — never a lecture, and never a suggestion to try it.
  */
 export const NOT_HERE: Record<string, string> = {
-  sudo: 'that one asks the computer for special powers. We do not need them.',
-  rmdir: 'CHIP uses rm for that, and rm here only recycles.',
-  chmod: 'that changes who is allowed to touch things. Not today.',
-  kill: 'that stops programs. Nothing here needs stopping.',
-  del: 'CHIP calls that one rm.',
-  dir: 'CHIP calls that one ls.',
-  cls: 'CHIP calls that one clear.',
-  type: 'CHIP calls that one cat.',
+  sudo: 'That one asks the computer for special powers. We do not need them in here.',
+  rmdir: 'I use rm for that, and my rm only ever recycles.',
+  chmod: 'That one changes who is allowed to touch things. Not today.',
+  kill: 'That one stops programs. Nothing in here needs stopping.',
+  rf: 'I do not have that one, and I am glad.',
+  del: 'I call that one rm.',
+  dir: 'I call that one ls.',
+  cls: 'I call that one clear.',
+  type: 'I call that one cat.',
+  man: 'I have no manual. Try help instead.',
 };
 
 export const isShellError = (e: unknown): e is ShellError => e instanceof ShellError;

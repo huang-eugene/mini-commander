@@ -101,7 +101,9 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
         const excuse = NOT_HERE[parsed.name];
         if (excuse) {
           screen.chip(excuse);
-          bus.emit({ kind: 'unknown-command', typed: parsed.spelling });
+          // `explained` keeps the runner from stapling a generic "it does not
+          // know that one" onto the specific answer we just gave.
+          bus.emit({ kind: 'unknown-command', typed: parsed.spelling, explained: true });
           return true;
         }
 

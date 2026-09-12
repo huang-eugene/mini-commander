@@ -159,40 +159,64 @@ export function parseLine(raw: string): ParsedLine | undefined {
 }
 
 /**
- * Edit distance, capped — used to turn "sl" into a nudge towards "ls".
- * Capping at 2 keeps suggestions honest: beyond that they are noise, and a
- * wrong suggestion is worse than none for a child who trusts CHIP.
+ * The nearest real word, or nothing.
+ *
+ * A wrong suggestion is worse than none, because a child who trusts CHIP will
+ * go and try it. So the threshold is tight and scales with length: on a short
+ * word, two edits is a different word entirely. `cat` and `map` are two edits
+ * apart, and suggesting "map" to a child who typed "cat" sends them somewhere
+ * unrelated with CHIP's blessing.
+ *
+ * Transpositions count as one edit rather than two, because swapped letters
+ * are the single most common way this age group mistypes — `sl` for `ls`,
+ * `mkidr` for `mkdir`. Plain Levenshtein scores those as 2 and would miss
+ * exactly the cases worth catching.
  */
 export function nearestWord(typed: string, candidates: readonly string[]): string | undefined {
+  const word = typed.toLowerCase();
   let best: string | undefined;
-  let bestScore = 3;
+  let bestScore = Number.POSITIVE_INFINITY;
 
   for (const candidate of candidates) {
-    const score = editDistance(typed.toLowerCase(), candidate);
-    if (score < bestScore) {
+    const score = editDistance(word, candidate);
+    // A short word gets one edit of slack; a longer one can afford two.
+    const allowed = Math.min(word.length, candidate.length) <= 4 ? 1 : 2;
+    if (score <= allowed && score < bestScore) {
       bestScore = score;
       best = candidate;
     }
   }
 
-  return bestScore <= 2 ? best : undefined;
+  return best;
 }
 
+/** Damerau-Levenshtein (optimal string alignment): transposition costs 1. */
 function editDistance(a: string, b: string): number {
   if (a === b) return 0;
-  const prev = new Array<number>(b.length + 1);
-  const curr = new Array<number>(b.length + 1);
 
-  for (let j = 0; j <= b.length; j += 1) prev[j] = j;
+  const rows: number[][] = [];
+  for (let i = 0; i <= a.length; i += 1) {
+    rows.push(new Array<number>(b.length + 1).fill(0));
+    rows[i]![0] = i;
+  }
+  for (let j = 0; j <= b.length; j += 1) rows[0]![j] = j;
 
   for (let i = 1; i <= a.length; i += 1) {
-    curr[0] = i;
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+      let value = Math.min(
+        rows[i - 1]![j]! + 1, // deletion
+        rows[i]![j - 1]! + 1, // insertion
+        rows[i - 1]![j - 1]! + cost, // substitution
+      );
+
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, rows[i - 2]![j - 2]! + 1); // transposition
+      }
+
+      rows[i]![j] = value;
     }
-    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j]!;
   }
 
-  return prev[b.length]!;
+  return rows[a.length]![b.length]!;
 }

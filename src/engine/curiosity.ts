@@ -58,6 +58,21 @@ export function reactToCuriosity(event: ShellEvent, chip: Chip): string[] | unde
     case 'said':
       return undefined; // echo is its own reward
 
+    // Meta words are not attempts at the world, and reacting to them is
+    // actively harmful: a cheerful "poking about? good!" tacked onto every
+    // hint undercuts the hint the child just asked for, and after `map` or
+    // `badges` it is simply noise.
+    case 'chip-word':
+    case 'free-text':
+      return undefined;
+
+    // The generic `command` event always trails a more specific one from the
+    // same typed line (`dir-created`, `listed`, `said`...). Reacting to it
+    // too means every interesting thing the child does gets a tailored line
+    // AND a generic one stapled to it.
+    case 'command':
+      return undefined;
+
     case 'recycled':
       return ['In the recycling. Not gone — we can always get it back.'];
 

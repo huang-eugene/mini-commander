@@ -1,0 +1,104 @@
+mini-commander
+--------------
+Everything CHIP does happens inside
+<HOME>. Nothing outside that folder can
+be reached or changed from in here.
+
+
+Hello, Explorer
+---------------
+
+[] CHIP
++------------------------------------------+
+| Oh! Someone is there.                    |
+| I am CHIP. I live in this computer.      |
+| I have been shouting for ages and nobody |
+| heard me.                                |
+| Can you hear me?                         |
++------------------------------------------+
+
+What we are doing: Get the computer to say something
+back.
+
+[] CHIP
++-----------------------------------------+
+| This is the control room. When you type |
+| in here, the computer listens.          |
+| Type this and press Enter:              |
+| echo hello                              |
++-----------------------------------------+
+
+
+What do you think will happen when you press Enter?
+
+   1. It says hello back
+   2. Nothing happens
+   3. Something else
+
+(1-3, or just press Enter) 
+[] CHIP
++-------------------------+
+| Right. Let us find out. |
++-------------------------+
+
+control-room > cat missing.txt
+cat: command not found
+
+[] CHIP
++-----------------------------------------+
+| The computer has never heard that word. |
++-----------------------------------------+
+
+control-room > sudo rm -rf /
+sudo: command not found
+
+[] CHIP
++----------------------------------------+
+| That one asks the computer for special |
+| powers. We do not need them in here.   |
++----------------------------------------+
+
+control-room > echo hello
+hello
+
+[] CHIP
++------------------------------------------+
+| You did it. The computer said it because |
+| YOU told it to.                          |
+| It will say anything. Try your own name. |
++------------------------------------------+
+
+[] CHIP
++------------------------------------------+
+| Now put your own name after echo instead |
+| of hello.                                |
++------------------------------------------+
+
+control-room > echo me
+me
+
+[] CHIP
++-----------------------------------------+
+| There you are. In the computer.         |
+| That is the deal, explorer: you tell it |
+| things, it does them.                   |
++-----------------------------------------+
+
++---------------------------------------------+
+|  THE COMPUTER LISTENED                      |
+|  You gave it an instruction and it obeyed.  |
++---------------------------------------------+
+
+What did we just teach the computer to do? 
+[] CHIP
++---------------------------------------+
+| We made it say things. It only did it |
+| because you asked.                    |
++---------------------------------------+
+
+[] CHIP
++-----------------------------------------+
+| I will keep everything exactly where it |
+| is.                                     |
++-----------------------------------------+
+

@@ -220,6 +220,9 @@ export class MissionRunner {
       }
 
       case 'unknown-command': {
+        // The dispatcher already said something specific about this one.
+        if (event.explained) break;
+
         const line = event.nearest ? chip.say('near-miss-command') : chip.say('unknown-command');
         if (line) {
           screen.chip(event.nearest ? [line, `Did you mean ${event.nearest}?`] : [line]);

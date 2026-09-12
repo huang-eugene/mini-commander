@@ -92,7 +92,7 @@ export const m02: Mission = {
 
     {
       id: 'look-around',
-      concepts: ['ls.look', 'ls.read-output'],
+      concepts: ['ls.look'],
 
       prompt: {
         guided: [

@@ -88,6 +88,16 @@ export interface Step {
 
   hints: Hints;
 
+  /**
+   * Set when rung 5 deliberately points the way rather than handing over the
+   * whole answer — a search step, where revealing the full path would skip
+   * the searching, which *is* the lesson. The reveal must still be true and
+   * still make progress; it just is not the complete solution, so the lint
+   * stops requiring the two to match. Use sparingly: on an ordinary step a
+   * mismatch means the ladder points somewhere else entirely.
+   */
+  revealIsPartial?: boolean;
+
   /** Specific reaction to a near-miss. Never generic, never "wrong". */
   nearMiss?(event: ShellEvent): Line[] | undefined;
 

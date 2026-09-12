@@ -20,7 +20,7 @@ export const m04: Mission = {
   minutes: [10, 15],
 
   teaches: ['cd.into', 'cd.up'],
-  requires: ['ls.look', 'cat.read'],
+  requires: ['ls.look', 'cat.read', 'pwd.where'],
 
   hook: [
     'Explorer. I have been exploring without you. Sorry.',
@@ -114,7 +114,43 @@ export const m04: Mission = {
         reveal: { line: 'cd cave. cd means go there.', command: 'cd cave' },
       },
 
-      success: ['We are IN the cave. Try pwd if you want to see.', 'Have a look around in here.'],
+      success: ['We are IN the cave. I can feel it. It is damp.'],
+    },
+
+    {
+      // This step exists to settle the prediction in the step above. We asked
+      // whether `pwd` would change when we walked into a room, and a
+      // prediction nobody ever checks teaches the child that guessing is
+      // decoration. It also brings `pwd` back two missions after it was
+      // taught, in a new situation.
+      id: 'where-are-we-now',
+      concepts: ['pwd.where'],
+
+      prompt: {
+        guided: [
+          'You guessed about this earlier. Let us check.',
+          'Ask the computer where we are now.',
+          'pwd',
+        ],
+        prompted: ['Were you right about pwd? Go on, check.'],
+        open: ['Check where we are.'],
+      },
+
+      done: (event) => event.kind === 'command' && event.name === 'pwd' && event.ok,
+      solution: 'pwd',
+
+      hints: {
+        ask: 'The three-letter word that asks where we are.',
+        concept: 'You used it in the control room, before we could walk anywhere.',
+        firstLetter: 'It starts with p.',
+        choice: { line: 'Which one?', options: ['pwd', 'ls'] },
+        reveal: { line: 'pwd. It tells you where you are standing.', command: 'pwd' },
+      },
+
+      success: [
+        'It changed! It says cave on the end now.',
+        'So walking into a room really does move us.',
+      ],
     },
 
     {
@@ -122,7 +158,7 @@ export const m04: Mission = {
       concepts: ['ls.look'],
 
       prompt: {
-        guided: ['Look around the cave.', 'ls'],
+        guided: ['Now look around the cave.', 'ls'],
         prompted: ['What is in the cave?'],
         open: ['See what is in here.'],
       },
