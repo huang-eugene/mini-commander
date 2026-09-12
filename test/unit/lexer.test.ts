@@ -44,6 +44,7 @@ test('refuses shell syntax by name instead of ignoring it', () => {
     ['echo $HOME', '$'],
     ['cat < note.txt', '<'],
     ['ls *', '*'],
+    ['echo (hi)', '('],
   ] as const) {
     assert.throws(
       () => parseLine(line),
@@ -52,6 +53,33 @@ test('refuses shell syntax by name instead of ignoring it', () => {
       `${line} should be refused, naming ${offender}`,
     );
   }
+});
+
+test('ordinary punctuation is allowed', () => {
+  // A 7-year-old writes "Done!" and "Are you there?". Refusing those would be
+  // a constant obstruction with nothing true behind it — bash treats them
+  // literally in these positions too.
+  assert.deepEqual(parseLine('echo Done!')?.args, ['Done!']);
+  assert.deepEqual(parseLine('echo Are you there?')?.args, ['Are', 'you', 'there?']);
+  assert.deepEqual(parseLine('echo 50% done')?.args, ['50%', 'done']);
+});
+
+test('an apostrophe inside a word is just an apostrophe', () => {
+  // A quote only opens a quoted string at the START of a word, so `echo it's
+  // mine` works. Bash would call that an unclosed quote and drop the child
+  // into a continuation prompt they have no way to understand — this is one
+  // of the few places where being deliberately kinder than a real shell is
+  // worth it, because there is nothing to learn from that particular
+  // confusion.
+  assert.deepEqual(parseLine("echo it's mine")?.args, ["it's", 'mine']);
+  assert.deepEqual(parseLine("echo CHIP's room")?.args, ["CHIP's", 'room']);
+
+  // A quote at the start of a word still quotes, and still has to be closed.
+  assert.deepEqual(parseLine("echo 'two words'")?.args, ['two words']);
+  assert.throws(
+    () => parseLine("echo 'never closed"),
+    (err: unknown) => err instanceof ParseProblem && err.kind === 'unclosed-quote',
+  );
 });
 
 test('an unclosed quote is explained, not guessed at', () => {

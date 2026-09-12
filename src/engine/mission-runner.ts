@@ -225,10 +225,13 @@ export class MissionRunner {
 
     if (isAttempt) this.attempts += 1;
 
-    // A specific reaction from the mission beats anything generic.
+    // A specific reaction from the mission beats anything generic. An empty
+    // array means "say nothing" — the mission is about to handle this event
+    // itself, and CHIP asking "what is the computer telling us?" immediately
+    // before answering his own question is worse than silence.
     const specific = step.nearMiss?.(event);
     if (specific) {
-      screen.chip(specific);
+      if (specific.length > 0) screen.chip(specific);
       return;
     }
 

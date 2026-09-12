@@ -18,6 +18,9 @@ import { m09 } from './m09-invisible-ink.js';
 import { m10 } from './m10-chips-diary.js';
 import { m11 } from './m11-chips-bedroom.js';
 import { m12 } from './m12-the-museum.js';
+import { m13 } from './m13-the-spell-book.js';
+import { m14 } from './m14-write-your-own-spell.js';
+import { m15 } from './m15-the-broken-spell.js';
 
 export const MISSIONS: readonly Mission[] = [
   m01,
@@ -32,6 +35,9 @@ export const MISSIONS: readonly Mission[] = [
   m10,
   m11,
   m12,
+  m13,
+  m14,
+  m15,
 ];
 
 const BY_ID = new Map(MISSIONS.map((m) => [m.id, m]));

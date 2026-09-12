@@ -40,7 +40,16 @@ export class ParseProblem extends Error {
   }
 }
 
-/** Characters that mean something in a real shell and nothing here. */
+/**
+ * Characters that mean something in a real shell and nothing here.
+ *
+ * The test for inclusion is whether a real shell would do something
+ * *surprising* with the character in ordinary use. Punctuation a child will
+ * genuinely want — `!` and `?` in particular, as in `echo Done!` or
+ * `echo Are you there?` — is deliberately absent from this list, because
+ * bash treats both literally in those positions too and refusing them would
+ * be a constant, pointless obstruction with nothing true behind it.
+ */
 const UNSUPPORTED: Record<string, string> = {
   '|': 'a pipe',
   ';': 'a semicolon',
@@ -49,12 +58,10 @@ const UNSUPPORTED: Record<string, string> = {
   $: 'a dollar sign',
   '<': 'a left arrow',
   '*': 'a star',
-  '?': 'a question mark',
   '(': 'a bracket',
   ')': 'a bracket',
   '{': 'a curly bracket',
   '}': 'a curly bracket',
-  '!': 'an exclamation mark',
 };
 
 type Token = { kind: 'word'; text: string } | { kind: 'redirect'; op: '>' | '>>' };

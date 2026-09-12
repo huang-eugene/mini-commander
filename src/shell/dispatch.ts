@@ -27,6 +27,8 @@ export interface Dispatcher {
   submit(raw: string): Promise<boolean>;
   /** Names available for tab completion and `help`. */
   vocabulary(): string[];
+  /** True when the last line that ran produced an error. */
+  lastFailed(): boolean;
 }
 
 export interface DispatchOptions {
@@ -53,15 +55,22 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
     ...chipWords,
   ];
 
-  return {
+  // Tracked so `run` can stop a spell on the line that broke.
+  let failed = false;
+
+  const dispatcher: Dispatcher = {
     vocabulary,
 
+    lastFailed: () => failed,
+
     async submit(raw: string): Promise<boolean> {
+      failed = false;
       let parsed;
       try {
         parsed = parseLine(raw);
       } catch (problem) {
         if (problem instanceof ParseProblem) {
+          failed = true;
           screen.error(`${raw.trim()}: ${problem.message}`);
           bus.emit({
             kind: 'unsupported-syntax',
@@ -96,6 +105,7 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
           }
         }
 
+        failed = true;
         screen.error(unknownCommand(parsed.spelling));
 
         const excuse = NOT_HERE[parsed.name];
@@ -118,7 +128,16 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
         return true;
       }
 
-      const ctx: CommandContext = { world, screen, bus, state };
+      // `run` needs to execute lines, and it does so through this very
+      // dispatcher — same parser, same command table, same jail.
+      const ctx: CommandContext = {
+        world,
+        screen,
+        bus,
+        state,
+        submit: (line) => dispatcher.submit(line),
+        lastFailed: () => failed,
+      };
       if (parsed.redirect) {
         // Only `echo` writes through a redirect. Anything else would need a
         // notion of piping output around, which this language does not have.
@@ -143,6 +162,7 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
         if (!isShellError(err)) throw err;
 
         // The real error, verbatim and first. This is the clue.
+        failed = true;
         screen.error(err.message);
         bus.emit({ kind: 'error', command: err.command, code: err.code, message: err.message });
         bus.emit({
@@ -157,6 +177,8 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
       return true;
     },
   };
+
+  return dispatcher;
 }
 
 /** Every command name, locked or not — used by the mission lint. */

@@ -16,7 +16,16 @@ import type { World } from './fs-jail.js';
 import type { Screen } from '../ui/render.js';
 import type { EventBus } from '../engine/events.js';
 import { ROOT, basename, resolve, type VPath } from './vpath.js';
-import { needsAnArgument, noSuchThing, notARoom, tooManyArguments, ShellError } from './errors.js';
+import {
+  fail,
+  isARoom,
+  needsAnArgument,
+  noSuchThing,
+  notARoom,
+  tooManyArguments,
+  ShellError,
+} from './errors.js';
+import { runSpell } from './spells.js';
 
 export interface ShellState {
   cwd: VPath;
@@ -31,6 +40,14 @@ export interface CommandContext {
   state: ShellState;
   /** Set when the line ended in `> file` or `>> file`. */
   redirect?: { op: '>' | '>>'; target: string };
+  /**
+   * Runs a line as if the child had typed it. Supplied by the dispatcher so
+   * that `run` executes a spell through exactly the same parser, the same
+   * command table and the same jail as everything else — there is no second
+   * execution path in this game, and therefore no second safety boundary.
+   */
+  submit?(line: string): Promise<boolean>;
+  lastFailed?(): boolean;
 }
 
 export interface Command {
@@ -292,6 +309,36 @@ const undo: Command = {
   },
 };
 
+const run: Command = {
+  name: 'run',
+  blurb: 'make the computer follow a list of instructions',
+  metaphor: 'running a stored list of instructions',
+  unlockedAt: 7,
+  async run(argv, ctx) {
+    if (argv.length === 0) needsAnArgument('run', 'the name of a spell to run');
+    if (argv.length > 1) tooManyArguments('run');
+
+    const target = resolve(ctx.state.cwd, argv[0]!);
+
+    const kind = await ctx.world.kindOf(target, 'run');
+    if (kind === 'nothing') noSuchThing('run', argv[0]!);
+    if (kind === 'room') isARoom('run', argv[0]!);
+
+    if (!ctx.submit || !ctx.lastFailed) {
+      fail('BAD_PROGRAM', 'run', 'run: cannot run spells here');
+    }
+
+    await runSpell({
+      world: ctx.world,
+      screen: ctx.screen,
+      bus: ctx.bus,
+      path: target,
+      submit: ctx.submit,
+      lastFailed: ctx.lastFailed,
+    });
+  },
+};
+
 /* ------------------------------------------------------------------ */
 
 export const COMMANDS: readonly Command[] = [
@@ -306,6 +353,7 @@ export const COMMANDS: readonly Command[] = [
   mv,
   rm,
   undo,
+  run,
 ];
 
 const BY_NAME = new Map(COMMANDS.map((c) => [c.name, c]));
