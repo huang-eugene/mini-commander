@@ -1,0 +1,60 @@
+{
+  "name": "mini-commander",
+  "version": "0.1.0",
+  "description": "A terminal adventure game that teaches a 7-year-old how computers actually work. CHIP the robot needs your help.",
+  "keywords": [
+    "kids",
+    "education",
+    "terminal",
+    "cli",
+    "game",
+    "learning",
+    "shell",
+    "children",
+    "stem"
+  ],
+  "license": "MIT",
+  "author": "huang-eugene",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huang-eugene/mini-commander.git"
+  },
+  "homepage": "https://github.com/huang-eugene/mini-commander#readme",
+  "bugs": {
+    "url": "https://github.com/huang-eugene/mini-commander/issues"
+  },
+  "type": "module",
+  "bin": {
+    "mini-commander": "bin/mini-commander.js",
+    "chip": "bin/mini-commander.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "docs/for-grown-ups.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:test": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build:test && node --test \"build/test/**/*.test.js\"",
+    "test:update": "npm run build:test && node scripts/update-transcripts.mjs",
+    "selfcheck": "npm run build && node dist/cli.js --self-check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}
