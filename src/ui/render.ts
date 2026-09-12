@@ -115,19 +115,25 @@ export function makeScreen(options: ScreenOptions): Screen {
     },
 
     celebrate(title, detail) {
-      const width = Math.max(title.length, detail?.length ?? 0) + 4;
-      const bar = g.boxHorizontal.repeat(width);
+      // Wrapped rather than sized to content: a long badge description would
+      // otherwise produce a box far wider than the dialogue around it, and
+      // wider than a small terminal.
+      const titleLines = wrap(title, CHIP_LINE_WIDTH);
+      const detailLines = detail ? wrap(detail, CHIP_LINE_WIDTH) : [];
+      const inner = Math.max(...[...titleLines, ...detailLines].map((l) => l.length));
+      const bar = g.boxHorizontal.repeat(inner + 4);
+
       writeLine(theme.win(`${g.boxTopLeft}${bar}${g.boxTopRight}`));
-      writeLine(
-        theme.win(`${g.boxVertical}  `) +
-          theme.win(theme.heading(title.padEnd(width - 4))) +
-          theme.win(`  ${g.boxVertical}`),
-      );
-      if (detail) {
+      for (const line of titleLines) {
         writeLine(
           theme.win(`${g.boxVertical}  `) +
-            detail.padEnd(width - 4) +
+            theme.win(theme.heading(line.padEnd(inner))) +
             theme.win(`  ${g.boxVertical}`),
+        );
+      }
+      for (const line of detailLines) {
+        writeLine(
+          theme.win(`${g.boxVertical}  `) + line.padEnd(inner) + theme.win(`  ${g.boxVertical}`),
         );
       }
       writeLine(theme.win(`${g.boxBottomLeft}${bar}${g.boxBottomRight}`));

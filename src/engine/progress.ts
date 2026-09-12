@@ -34,7 +34,9 @@ export const BADGES: readonly Badge[] = [
   {
     id: 'bug-detective',
     name: 'Bug Detective',
-    earnedFor: 'You found the line that was wrong and fixed it.',
+    // Worded to fit both ways it can be earned: catching CHIP out in m07, and
+    // finding the broken line in a program in m15.
+    earnedFor: 'You spotted something wrong and proved it.',
   },
   { id: 'robot-engineer', name: 'Robot Engineer', earnedFor: 'You wrote a program and ran it.' },
   {
@@ -58,8 +60,14 @@ export const COSMETICS: Record<string, string> = {
   pet: 'a small metal dog called Bolt',
 };
 
-export function awardMission(save: SaveFile, mission: Mission, now = new Date()): string[] {
-  const announcements: string[] = [];
+/** A thing to announce, split so the renderer can keep the box narrow. */
+export interface Award {
+  title: string;
+  detail: string;
+}
+
+export function awardMission(save: SaveFile, mission: Mission, now = new Date()): Award[] {
+  const announcements: Award[] = [];
   const rewards = mission.rewards;
   if (!rewards) return announcements;
 
@@ -67,14 +75,16 @@ export function awardMission(save: SaveFile, mission: Mission, now = new Date())
     if (save.badges.some((b) => b.id === id)) continue;
     save.badges.push({ id, earnedAt: now.toISOString(), missionId: mission.id });
     const badge = BADGE_BY_ID.get(id);
-    if (badge) announcements.push(`${badge.name} badge — ${badge.earnedFor}`);
+    if (badge) announcements.push({ title: `${badge.name} badge`, detail: badge.earnedFor });
   }
 
   for (const id of rewards.cosmetics ?? []) {
     if (save.cosmetics.includes(id)) continue;
     save.cosmetics.push(id);
     const description = COSMETICS[id];
-    if (description) announcements.push(`Something new in CHIP’s world: ${description}.`);
+    if (description) {
+      announcements.push({ title: 'New in CHIP’s world', detail: description });
+    }
   }
 
   for (const name of rewards.artifacts ?? []) {

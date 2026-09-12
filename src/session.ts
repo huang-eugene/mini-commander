@@ -172,7 +172,9 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
   // The main loop. Every line goes to the dispatcher, every event to the
   // runner. The runner decides when the mission is over; nothing else does.
   while (!quitEarly && !runner.done) {
-    const line = await input.line(promptFor(state.cwd));
+    // A command typed at a prediction prompt is held rather than swallowed.
+    const deferred = runner.takeDeferred();
+    const line = deferred ?? (await input.line(promptFor(state.cwd)));
     if (line === undefined) break;
 
     const events: number = bus.history().length;
@@ -205,7 +207,7 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
 
   if (outcome.completed) {
     const announcements = awardMission(save, mission, now());
-    for (const line of announcements) screen.celebrate(line);
+    for (const award of announcements) screen.celebrate(award.title, award.detail);
 
     // Unlock the next stage's vocabulary only after finishing its missions,
     // so the command list grows at the pace of the story.

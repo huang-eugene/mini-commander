@@ -42,10 +42,9 @@ export function reactToCuriosity(event: ShellEvent, chip: Chip): string[] | unde
     }
 
     case 'listed': {
-      if (event.entries.length === 0) {
-        const line = chip.say('nothing-here');
-        return line ? [line] : undefined;
-      }
+      // An empty room already prints "(nothing here)". CHIP adding "Nothing
+      // in this one" straight after is the same sentence twice.
+      if (event.entries.length === 0) return undefined;
       if (event.showedHidden) {
         return ['Hidden things. I always forget those are there.'];
       }

@@ -80,11 +80,16 @@ export interface Step {
   done(event: ShellEvent, ctx: StepContext): boolean | Promise<boolean>;
 
   /**
-   * A command that solves this step from the mission's starting state. The
-   * lint runs it and asserts `done` then fires, which is what proves the
-   * ladder's reveal is truthful and the mission is completable.
+   * The command, or sequence of commands, that solves this step from the
+   * mission's starting state. The lint runs them in order and asserts `done`
+   * then fires, which is what proves the ladder's reveal is truthful and the
+   * mission is completable.
+   *
+   * A sequence is the normal case from stage 6 onwards, where the whole point
+   * is that the child combines several commands to reach a goal and no single
+   * line gets there.
    */
-  solution: string;
+  solution: string | string[];
 
   hints: Hints;
 

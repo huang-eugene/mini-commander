@@ -74,10 +74,11 @@ me
 | things, it does them.                   |
 +-----------------------------------------+
 
-+---------------------------------------------+
-|  THE COMPUTER LISTENED                      |
-|  You gave it an instruction and it obeyed.  |
-+---------------------------------------------+
++-------------------------------------+
+|  THE COMPUTER LISTENED              |
+|  You gave it an instruction and it  |
+|  obeyed.                            |
++-------------------------------------+
 
 What did we just teach the computer to do? 
 [] CHIP

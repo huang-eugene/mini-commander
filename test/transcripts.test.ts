@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 
 import { matchGolden, play } from './harness/session.js';
 import { freshSave } from '../src/engine/save.js';
+import { freshConceptState } from '../src/engine/learner.js';
 
 async function check(name: string, inputs: string[], save?: ReturnType<typeof freshSave>) {
   const played = await play(save ? { inputs, save } : { inputs });
@@ -121,6 +122,64 @@ test('wandering off mid-mission is followed, not corrected', async () => {
     /\b(wrong|incorrect|no,)\b/i,
     'nothing the child does safely should be called wrong',
   );
+});
+
+test('the child corrects CHIP, and he takes it well', async () => {
+  // The reversal mechanic: CHIP insists `touch` makes a room, the child runs
+  // it and looks, and the output settles it. Read this transcript when
+  // changing anything about claims — CHIP must be pleased to be wrong, and
+  // the child must be the one who established the truth.
+  const save = freshSave();
+  save.seenWelcome = true;
+  save.stage = 4;
+  // Pretend the earlier missions are done so the selector offers m07.
+  for (const id of [
+    'm01-hello-explorer',
+    'm02-where-am-i',
+    'm03-the-message',
+    'm04-three-doors',
+    'm05-moon-crystal',
+    'm06-build-your-base',
+  ]) {
+    save.missions[id] = { plays: 1, completed: true, lastSessionIndex: 0, hintsUsed: 0 };
+  }
+  for (const id of [
+    'echo.say',
+    'pwd.where',
+    'ls.look',
+    'cat.read',
+    'cd.into',
+    'cd.up',
+    'mkdir.make',
+  ]) {
+    save.concepts[id] = {
+      ...freshConceptState(),
+      strength: 0.9,
+      unaidedUses: 4,
+      sessions: 2,
+      scaffold: 'prompted',
+      lastUsedAt: new Date('2026-03-14T09:00:00.000Z').toISOString(),
+    };
+  }
+
+  const played = await check(
+    'm07-correcting-chip',
+    [
+      'echo', // the warm-up retrieval question
+      '2', // prediction: "no, he is wrong"
+      'touch rock',
+      'ls',
+      'slash', // recap answer
+    ],
+    save,
+  );
+
+  assert.match(
+    played.transcript,
+    /You were right and I was wrong/,
+    'CHIP must acknowledge the correction',
+  );
+  assert.equal(played.save.chipCorrections, 1, 'correcting CHIP should be recorded');
 });
 
 test('quitting halfway keeps everything and says so', async () => {

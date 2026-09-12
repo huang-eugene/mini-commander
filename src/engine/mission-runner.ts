@@ -21,7 +21,7 @@ import type { Screen } from '../ui/render.js';
 import type { EventBus, ShellEvent } from './events.js';
 import type { Mission, Step, StepContext } from '../missions/types.js';
 import type { World } from '../shell/fs-jail.js';
-import type { ShellState } from '../shell/commands.js';
+import { findCommand, type ShellState } from '../shell/commands.js';
 import { HintLadder } from './hints.js';
 import { Learner } from './learner.js';
 import { Chip } from '../chip/persona.js';
@@ -59,6 +59,7 @@ export class MissionRunner {
   private anchor: VPath = ROOT;
   private readonly notes: string[] = [];
   private awaitingPrediction = false;
+  private deferred: string | undefined;
 
   constructor(
     private readonly mission: Mission,
@@ -125,6 +126,17 @@ export class MissionRunner {
     const answer = await this.deps.ask(predict.question, predict.options);
     this.awaitingPrediction = false;
 
+    // A prediction is a modal prompt, and a child who has just been shown a
+    // command will type the command at it. Swallowing that would lose their
+    // input and then congratulate them for a guess they never made. If the
+    // answer looks like a command, take it as one: they have skipped ahead,
+    // which is allowed.
+    const firstWord = answer.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+    if (findCommand(firstWord, this.deps.state.stage)) {
+      this.deferred = answer.trim();
+      return;
+    }
+
     // Credit is for making a guess, not for being right. A child who guesses
     // wrong has still done retrieval, and telling them off for it would kill
     // the habit we are trying to build.
@@ -134,6 +146,17 @@ export class MissionRunner {
     }
 
     this.deps.screen.chip(predict.reply);
+  }
+
+  /**
+   * A line the child typed at a prompt that was not asking for a command.
+   * The session loop drains this before reading new input, so nothing they
+   * type is ever silently thrown away.
+   */
+  takeDeferred(): string | undefined {
+    const held = this.deferred;
+    this.deferred = undefined;
+    return held;
   }
 
   /**

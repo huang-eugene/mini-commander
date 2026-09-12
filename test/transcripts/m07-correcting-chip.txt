@@ -1,0 +1,110 @@
+[] CHIP
++--------------------------+
+| Explorer! You came back. |
++--------------------------+
+
+Before we start — do you remember the word for making the computer say something? echo
+[] CHIP
++----------------------------------+
+| That is the one. You remembered. |
++----------------------------------+
+
+Empty Boxes
+-----------
+
+[] CHIP
++--------------------------------------+
+| Your base is still there. I checked. |
+| Twice.                               |
+| It is very empty though.             |
+| I know another building word! I am   |
+| almost sure about this one.          |
++--------------------------------------+
+
+What we are doing: Find out what touch really does.
+
+[] CHIP
++---------------------------------------+
+| The word is touch. It builds a room,  |
+| like mkdir but smaller. I am certain. |
++---------------------------------------+
+
+[] CHIP
++------------------------------------+
+| Let us test my idea.               |
+| Type touch, then a name. Try this: |
+| touch rock                         |
++------------------------------------+
+
+
+Do you think CHIP is right that touch makes a room?
+
+   1. Yes, he is right
+   2. No, he is wrong
+   3. Not sure
+
+(1-3, or just press Enter) 2
+[] CHIP
++------------------------------------+
+| Good. Now we find out for certain. |
++------------------------------------+
+
+control-room > touch rock
+[] CHIP
++------------------------------------------+
+| Something happened. Or nothing did. Look |
+| and see.                                 |
++------------------------------------------+
+
+[] CHIP
++---------------------------+
+| Have a look. Was I right? |
++---------------------------+
+
+control-room > ls
+rock
+
+[] CHIP
++------------------------------------------+
+| Wait. That is not a room at all.         |
+| There is no slash after it. Rooms have a |
+| slash.                                   |
+| It is a THING. You cannot walk into it.  |
+| You were right and I was wrong. Again.   |
++------------------------------------------+
+
+[] CHIP
++-----------------------------------------+
+| No slash. It is a thing, not a room.    |
+| mkdir makes places. touch makes things. |
+| I will try to remember that.            |
++-----------------------------------------+
+
++---------------------------------------+
+|  CHIP WAS WRONG                       |
+|  And you were the one who proved it.  |
++---------------------------------------+
+
+How can you tell a room from a thing when you look? slash
+[] CHIP
++--------------------------+
+| Yes! That is exactly it. |
++--------------------------+
+
++------------------------------------------+
+|  Bug Detective badge                     |
+|  You spotted something wrong and proved  |
+|  it.                                     |
++------------------------------------------+
+
++------------------------+
+|  New in CHIP’s world   |
+|  a poster of a rocket  |
++------------------------+
+
+[] CHIP
++-----------------------------------------+
+| I will keep everything exactly where it |
+| is.                                     |
++-----------------------------------------+
+

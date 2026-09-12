@@ -223,13 +223,22 @@ test('every concept is taught once and practised again later', () => {
     }
   }
 
+  // The final mission is exempt: whatever it introduces has nothing after it
+  // by definition, and that is a fact about the end of the curriculum rather
+  // than a defect. Every other concept must come back.
+  const last = MISSIONS[MISSIONS.length - 1];
+  const exempt = new Set<string>(last?.teaches ?? []);
+
   for (const [id, missions] of taughtBy) {
+    if (exempt.has(id)) continue;
+
     const uses = new Set(usedBy.get(id) ?? []);
     const later = [...uses].filter((m) => !missions.includes(m));
 
     assert.ok(
       later.length >= 1,
-      `"${id}" is taught by ${missions.join(', ')} and never practised in a later mission`,
+      `"${id}" is taught by ${missions.join(', ')} and never practised in a later mission. ` +
+        'A command that appears once and disappears will be forgotten.',
     );
   }
 });
@@ -387,33 +396,45 @@ test('running each step’s solution completes that step', async () => {
       if (mission.startIn) await shell.run(`cd ${mission.startIn}`);
 
       for (const step of mission.steps) {
-        const before = shell.bus.history().length;
-        await shell.run(step.solution);
-        const produced = shell.bus.history().slice(before);
-
-        assert.ok(
-          produced.length > 0,
-          `${mission.id}/${step.id}: solution "${step.solution}" produced no events`,
-        );
-
-        const ctx: StepContext = {
-          world: shell.world,
-          cwd: shell.state.cwd,
-          anchor: shell.state.cwd,
-        };
+        const lines = Array.isArray(step.solution) ? step.solution : [step.solution];
+        const shown = lines.join(' then ');
 
         let completed = false;
-        for (const event of produced) {
-          if (await step.done(event, ctx)) {
-            completed = true;
-            break;
+        const allEvents: string[] = [];
+
+        // Run the sequence, checking after every command. A multi-command
+        // solution may well satisfy the step before its last line — what
+        // matters is that following it gets there.
+        for (const line of lines) {
+          const before = shell.bus.history().length;
+          await shell.run(line);
+          const produced = shell.bus.history().slice(before);
+
+          assert.ok(
+            produced.length > 0,
+            `${mission.id}/${step.id}: "${line}" produced no events at all`,
+          );
+          allEvents.push(...produced.map((e) => e.kind));
+
+          const ctx: StepContext = {
+            world: shell.world,
+            cwd: shell.state.cwd,
+            anchor: shell.state.cwd,
+          };
+
+          for (const event of produced) {
+            if (await step.done(event, ctx)) {
+              completed = true;
+              break;
+            }
           }
+          if (completed) break;
         }
 
         assert.ok(
           completed,
-          `${mission.id}/${step.id}: the solution "${step.solution}" did not complete the step.\n` +
-            `Events were: ${produced.map((e) => e.kind).join(', ')}\n` +
+          `${mission.id}/${step.id}: the solution "${shown}" did not complete the step.\n` +
+            `Events were: ${allEvents.join(', ')}\n` +
             `Output was:\n${shell.output()}`,
         );
       }
@@ -435,13 +456,16 @@ test('the reveal command and the declared solution agree', () => {
       if (step.revealIsPartial) continue;
 
       const revealWord = step.hints.reveal.command.trim().split(/\s+/)[0];
-      const solutionWord = step.solution.trim().split(/\s+/)[0];
+      // For a multi-command solution the reveal may name any step of the
+      // sequence — often the last one, which is the command that actually
+      // completes the step.
+      const lines = Array.isArray(step.solution) ? step.solution : [step.solution];
+      const solutionWords = lines.map((l) => l.trim().split(/\s+/)[0]);
 
-      assert.equal(
-        revealWord,
-        solutionWord,
-        `${mission.id}/${step.id}: rung 5 reveals "${revealWord}" but the solution starts ` +
-          `with "${solutionWord}". If that is deliberate, set revealIsPartial.`,
+      assert.ok(
+        solutionWords.includes(revealWord),
+        `${mission.id}/${step.id}: rung 5 reveals "${revealWord}", which is not part of the ` +
+          `solution (${solutionWords.join(', ')}). If that is deliberate, set revealIsPartial.`,
       );
     }
   }
