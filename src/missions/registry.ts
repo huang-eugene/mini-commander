@@ -21,6 +21,10 @@ import { m12 } from './m12-the-museum.js';
 import { m13 } from './m13-the-spell-book.js';
 import { m14 } from './m14-write-your-own-spell.js';
 import { m15 } from './m15-the-broken-spell.js';
+import { m16 } from './m16-the-envelope.js';
+import { m17 } from './m17-is-anybody-there.js';
+import { m18 } from './m18-names-and-numbers.js';
+import { m19 } from './m19-the-long-journey.js';
 
 export const MISSIONS: readonly Mission[] = [
   m01,
@@ -38,6 +42,10 @@ export const MISSIONS: readonly Mission[] = [
   m13,
   m14,
   m15,
+  m16,
+  m17,
+  m18,
+  m19,
 ];
 
 const BY_ID = new Map(MISSIONS.map((m) => [m.id, m]));

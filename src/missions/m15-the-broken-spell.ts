@@ -23,7 +23,7 @@ export const m15: Mission = {
   stage: 7,
   minutes: [12, 15],
 
-  teaches: ['program.debug'],
+  teaches: ['debug.find'],
   requires: ['program.run', 'cat.read', 'redirect.write', 'move.rename'],
 
   hook: [
@@ -92,7 +92,7 @@ export const m15: Mission = {
 
     {
       id: 'read-the-broken-line',
-      concepts: ['cat.read', 'program.debug'],
+      concepts: ['cat.read', 'debug.find'],
 
       prompt: {
         guided: [
@@ -131,7 +131,7 @@ export const m15: Mission = {
 
     {
       id: 'fix-it',
-      concepts: ['program.debug', 'redirect.write', 'program.write'],
+      concepts: ['debug.find', 'redirect.write', 'program.write'],
 
       prompt: {
         guided: [

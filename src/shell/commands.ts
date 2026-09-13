@@ -26,6 +26,7 @@ import {
   ShellError,
 } from './errors.js';
 import { runSpell } from './spells.js';
+import { NET_COMMANDS } from '../net/commands.js';
 
 export interface ShellState {
   cwd: VPath;
@@ -354,6 +355,7 @@ export const COMMANDS: readonly Command[] = [
   rm,
   undo,
   run,
+  ...NET_COMMANDS,
 ];
 
 const BY_NAME = new Map(COMMANDS.map((c) => [c.name, c]));

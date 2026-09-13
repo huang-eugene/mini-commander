@@ -282,13 +282,17 @@ test('CHIP never offers generic praise on success', () => {
     'good girl',
   ];
 
+  // Whole words only. A substring check flagged "the attic computer might be
+  // perfectly fine", which is about the computer rather than the child, and
+  // would keep catching ordinary English ("a great hall", "an amazing view").
   for (const mission of MISSIONS) {
     for (const step of mission.steps) {
       for (const line of step.success) {
         const lower = line.toLowerCase();
         for (const phrase of BANNED) {
+          const asWords = new RegExp(`\\b${phrase.replace(/ /g, '\\s+')}\\b`);
           assert.ok(
-            !lower.includes(phrase),
+            !asWords.test(lower),
             `${mission.id}/${step.id} says "${phrase}" — say what they actually did instead`,
           );
         }

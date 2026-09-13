@@ -32,7 +32,7 @@ export type ConceptId =
   // stage 7 — programs
   | 'program.run'
   | 'program.write'
-  | 'program.debug'
+  | 'debug.find'
   // stage 8 — networking
   | 'net.envelope'
   | 'net.reach'
@@ -149,9 +149,13 @@ export const CONCEPTS: readonly Concept[] = [
     needs: ['program.run', 'redirect.append'],
   },
   {
-    id: 'program.debug',
+    // Not 'program.debug': the same move — read what the tool told you, work
+    // out where it stopped, go and look there — is what finds a broken line
+    // in a spell AND a broken link in the network. Naming it after programs
+    // made it look like a stage 7 speciality when it is the general skill.
+    id: 'debug.find',
     stage: 7,
-    metaphor: 'finding the line that went wrong',
+    metaphor: 'working out where something went wrong',
     needs: ['program.write'],
   },
 
