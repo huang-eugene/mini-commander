@@ -61,10 +61,17 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
   // to know before anything is written.
   if (!save.seenWelcome) {
     screen.heading('mini-commander');
-    screen.note(
-      `Everything CHIP does happens inside ${home}. Nothing outside that folder ` +
-        'can be reached or changed from in here.',
-    );
+    // The path goes on its own line rather than inside the sentence. Two
+    // reasons, and the second one bit: a parent who wants to go and look at
+    // the folder can read or copy it whole instead of picking it out of
+    // wrapped prose, and a path inside wrapped prose is one unbreakable word
+    // whose LENGTH decides where every following word lands. That made the
+    // welcome block — and so four golden transcripts — depend on how long the
+    // machine's temp directory happened to be, which is why they passed on
+    // Linux and failed on macOS.
+    screen.note('Everything CHIP does happens inside this folder:');
+    screen.note(home);
+    screen.note('Nothing outside it can be reached or changed from in here.');
     screen.gap();
     save.seenWelcome = true;
   }
