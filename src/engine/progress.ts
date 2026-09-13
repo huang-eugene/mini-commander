@@ -48,17 +48,25 @@ export const BADGES: readonly Badge[] = [
 
 const BADGE_BY_ID = new Map(BADGES.map((b) => [b.id, b]));
 
-/** Cosmetic unlocks. These change CHIP's world rather than showing a number. */
-export const COSMETICS: Record<string, string> = {
-  torch: 'a torch on the control room wall',
-  crystal: 'the Moon Crystal, humming on a shelf',
-  'crystal-glow': 'a warm glow from the crystal',
-  lamp: 'a little lamp',
-  poster: 'a poster of a rocket',
-  window: 'a window with stars outside',
-  rocket: 'a model rocket, slightly broken',
-  pet: 'a small metal dog called Bolt',
-};
+/**
+ * Cosmetic unlocks. These change CHIP's world rather than showing a number.
+ *
+ * A Map for the same reason as NOT_HERE in shell/commands.ts: it is indexed by
+ * ids that come out of the save file, so an inherited Object.prototype key
+ * would resolve to a function and be rendered as one.
+ */
+export const COSMETICS: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    torch: 'a torch on the control room wall',
+    crystal: 'the Moon Crystal, humming on a shelf',
+    'crystal-glow': 'a warm glow from the crystal',
+    lamp: 'a little lamp',
+    poster: 'a poster of a rocket',
+    window: 'a window with stars outside',
+    rocket: 'a model rocket, slightly broken',
+    pet: 'a small metal dog called Bolt',
+  }),
+);
 
 /** A thing to announce, split so the renderer can keep the box narrow. */
 export interface Award {
@@ -81,7 +89,7 @@ export function awardMission(save: SaveFile, mission: Mission, now = new Date())
   for (const id of rewards.cosmetics ?? []) {
     if (save.cosmetics.includes(id)) continue;
     save.cosmetics.push(id);
-    const description = COSMETICS[id];
+    const description = COSMETICS.get(id);
     if (description) {
       announcements.push({ title: 'New in CHIP’s world', detail: description });
     }
@@ -165,7 +173,7 @@ export async function showMap(
     screen.note(
       'In the control room: ' +
         save.cosmetics
-          .map((c) => COSMETICS[c])
+          .map((c) => COSMETICS.get(c))
           .filter((c): c is string => Boolean(c))
           .join(', ') +
         '.',

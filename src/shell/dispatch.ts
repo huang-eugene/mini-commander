@@ -108,7 +108,7 @@ export function makeDispatcher(options: DispatchOptions): Dispatcher {
         failed = true;
         screen.error(unknownCommand(parsed.spelling));
 
-        const excuse = NOT_HERE[parsed.name];
+        const excuse = NOT_HERE.get(parsed.name);
         if (excuse) {
           screen.chip(excuse);
           // `explained` keeps the runner from stapling a generic "it does not
