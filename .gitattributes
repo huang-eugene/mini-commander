@@ -1,0 +1,12 @@
+# Normalise line endings on the way into the repository and check everything
+# out as LF, on every platform.
+#
+# Without this, GitHub's Windows runners check out CRLF (core.autocrlf=true is
+# their default) and `prettier --check` — whose endOfLine defaults to "lf" —
+# rejects every file in the repo before the tests ever run. The CI failure it
+# produces says nothing about the code.
+* text=auto eol=lf
+
+# Golden transcripts are byte-compared against captured output, so they must
+# never be touched by normalisation.
+test/transcripts/*.txt -text
