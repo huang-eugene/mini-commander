@@ -111,7 +111,7 @@ bigger** before you start. Bigger than you think.
 
 ## Requirements
 
-Node 20 or newer. Works on macOS Terminal, Linux, and Windows PowerShell —
+Node 22 or newer. Works on macOS Terminal, Linux, and Windows PowerShell —
 the game implements its own commands, so a child on Windows and a child on a
 Mac learn exactly the same words.
 

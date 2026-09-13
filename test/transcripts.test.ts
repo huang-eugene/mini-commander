@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { matchGolden, play } from './harness/session.js';
+import { makeTempHome, matchGolden, play, scrubHome } from './harness/session.js';
 import { freshSave } from '../src/engine/save.js';
 import { freshConceptState } from '../src/engine/learner.js';
 
@@ -195,5 +195,33 @@ test('quitting halfway keeps everything and says so', async () => {
     );
   } finally {
     await played.cleanup();
+  }
+});
+
+test('a transcript does not depend on how long the temp path is', async () => {
+  // The welcome block prints the world folder. It used to sit inside a
+  // sentence that gets wrapped, so the path was one unbreakable word whose
+  // LENGTH decided where every following word landed — and os.tmpdir() is
+  // ~19 characters on Linux against ~60 on macOS, where /var/folders/... is
+  // the norm. Four goldens therefore passed on Linux and failed on macOS.
+  //
+  // Scrubbing cannot fix this: matchGolden runs after rendering, so it can
+  // make a path stable but never its length. The fix has to keep variable
+  // -length paths out of wrapped prose, and this is the test for that.
+  const short = await play({ inputs: ['', 'echo hi', ''] });
+  const long = await play({
+    inputs: ['', 'echo hi', ''],
+    home: await makeTempHome('mc-test-' + 'x'.repeat(60) + '-'),
+  });
+
+  try {
+    assert.equal(
+      await scrubHome(short.transcript, short.home),
+      await scrubHome(long.transcript, long.home),
+      'the transcript changed because the temp directory path was longer',
+    );
+  } finally {
+    await short.cleanup();
+    await long.cleanup();
   }
 });

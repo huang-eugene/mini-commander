@@ -16,7 +16,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as nodePath from 'node:path';
 
-import { World, MARKER_FILE } from '../../src/shell/fs-jail.js';
+import { World, MARKER_FILE, MAX_FILE_BYTES, MAX_WORLD_BYTES } from '../../src/shell/fs-jail.js';
 import { ROOT, resolve, type VPath } from '../../src/shell/vpath.js';
 import { ShellError } from '../../src/shell/errors.js';
 
@@ -310,6 +310,53 @@ test('resource caps hold', async () => {
   );
 });
 
+test('the whole-world byte cap survives rewrites of existing files', async () => {
+  // The cap used to be checked only when a file was CREATED, so an existing
+  // file could be refilled to MAX_FILE_BYTES for free. Enough files created
+  // while the world was small could then each be grown to 64KB, reaching about
+  // 128MB against a documented 10MB cap.
+  const { world } = await freshWorld();
+  const block = 'x'.repeat(MAX_FILE_BYTES);
+  // A couple past the cap, so the loop has to cross it rather than stop on it.
+  const needed = Math.ceil(MAX_WORLD_BYTES / MAX_FILE_BYTES) + 2;
+
+  // Create them all empty first — cheap, and exactly the shape of the bypass.
+  for (let i = 0; i < needed; i += 1) {
+    await world.makeEmptyThing(resolve(ROOT, `f${i}.txt`), 'touch');
+  }
+
+  let refused = false;
+  for (let i = 0; i < needed && !refused; i += 1) {
+    try {
+      await world.write(resolve(ROOT, `f${i}.txt`), block, 'replace', 'echo');
+    } catch (err) {
+      refused = err instanceof ShellError && err.code === 'TOO_BIG';
+      if (!refused) throw err;
+    }
+  }
+
+  assert.ok(refused, 'refilling existing files must eventually hit the world byte cap');
+
+  const { bytes } = await world.measure();
+  assert.ok(
+    bytes <= MAX_WORLD_BYTES + MAX_FILE_BYTES,
+    `world grew to ${bytes} bytes, past the ${MAX_WORLD_BYTES} cap`,
+  );
+});
+
+test('a rewrite that does not grow a file is always allowed', async () => {
+  // The budget check only runs when a write GROWS the world: measure() walks
+  // the whole tree, so checking every write would rescan up to MAX_FILES
+  // entries each time a child types `echo >`.
+  const { world } = await freshWorld();
+  const note = resolve(ROOT, 'note.txt');
+
+  await world.write(note, 'x'.repeat(1000), 'replace', 'echo');
+  await world.write(note, 'shorter\n', 'replace', 'echo');
+
+  assert.equal(await world.read(note, 'cat'), 'shorter\n');
+});
+
 test('rm recycles and undo restores', async () => {
   const { world } = await freshWorld();
   const note = resolve(ROOT, 'note.txt');
@@ -344,4 +391,112 @@ test('the recycling bin and the marker never show up in ls', async () => {
   // so the hidden-file mission has exactly one thing to discover.
   const withHidden = plain.filter((e) => e.hidden).map((e) => e.name);
   assert.deepEqual(withHidden, ['.hidden-clue']);
+});
+
+/* ---- links planted by something other than the game ------------------- */
+
+/**
+ * The game never creates a link of any kind. But the world folder is an
+ * ordinary directory owned by the user, and the jail's own threat model says
+ * "a grown-up experimenting in the world folder might" — as could anything
+ * else running as the same user. These four are the writes that would follow
+ * such a link out of the world.
+ *
+ * Threat #15 in the header claimed a test since the day it was written. It did
+ * not have one, and the guard it describes threw its refusal from inside a
+ * try/catch that swallowed it, so it never once fired.
+ */
+
+/** Somewhere outside the world, with a file in it that must not be touched. */
+async function bystander(): Promise<{ dir: string; file: string; original: string }> {
+  const dir = await fs.mkdtemp(nodePath.join(os.tmpdir(), 'mc-bystander-'));
+  const file = nodePath.join(dir, 'not-yours.txt');
+  const original = 'someone else’s file\n';
+  await fs.writeFile(file, original, 'utf8');
+  return { dir, file, original };
+}
+
+test('writing through a hard link is refused', async () => {
+  const { world, root } = await freshWorld();
+  const outside = await bystander();
+
+  // No symlink to follow, so realpath() sees nothing wrong: the inode is
+  // simply shared with a file outside the world.
+  await fs.link(outside.file, nodePath.join(root, 'linked.txt'));
+  const target = resolve(ROOT, 'linked.txt');
+
+  await assert.rejects(
+    () => world.write(target, 'clobbered\n', 'replace', 'echo'),
+    ShellError,
+    'echo > must refuse a hard link',
+  );
+  await assert.rejects(
+    () => world.write(target, 'clobbered\n', 'append', 'echo'),
+    ShellError,
+    'echo >> must refuse a hard link',
+  );
+
+  await world.write(resolve(ROOT, 'source.txt'), 'payload\n', 'replace', 'echo');
+  await assert.rejects(
+    () => world.copy(resolve(ROOT, 'source.txt'), target, 'cp'),
+    ShellError,
+    'cp must refuse a hard link too — it never even asked before',
+  );
+
+  assert.equal(
+    await fs.readFile(outside.file, 'utf8'),
+    outside.original,
+    'the file outside the world must be untouched',
+  );
+});
+
+test('a dangling symlink cannot be used to create a file outside the world', async () => {
+  const { world, root } = await freshWorld();
+  const outside = await bystander();
+
+  // The target does not exist YET. That is the whole trick: realpath() fails
+  // on the link itself, so real() walks up to the world root and passes, and
+  // lstat then reports 'nothing' so the write looks like a brand-new file.
+  const victim = nodePath.join(outside.dir, 'should-never-be-created.txt');
+  await fs.symlink(victim, nodePath.join(root, 'trap.txt'));
+
+  await assert.rejects(
+    () => world.write(resolve(ROOT, 'trap.txt'), 'pwned\n', 'replace', 'echo'),
+    ShellError,
+    'echo > must refuse a dangling symlink',
+  );
+  await assert.rejects(
+    () => world.makeEmptyThing(resolve(ROOT, 'trap.txt'), 'touch'),
+    ShellError,
+    'touch must refuse a dangling symlink',
+  );
+
+  await world.write(resolve(ROOT, 'source.txt'), 'payload\n', 'replace', 'echo');
+  await assert.rejects(
+    () => world.copy(resolve(ROOT, 'source.txt'), resolve(ROOT, 'trap.txt'), 'cp'),
+    ShellError,
+    'cp must refuse a dangling symlink',
+  );
+
+  assert.equal(
+    await fs.access(victim).then(
+      () => true,
+      () => false,
+    ),
+    false,
+    'nothing may be created outside the world',
+  );
+});
+
+test('a symlink to an existing file outside the world is refused on write', async () => {
+  const { world, root } = await freshWorld();
+  const outside = await bystander();
+
+  await fs.symlink(outside.file, nodePath.join(root, 'pointer.txt'));
+
+  await assert.rejects(
+    () => world.write(resolve(ROOT, 'pointer.txt'), 'clobbered\n', 'replace', 'echo'),
+    ShellError,
+  );
+  assert.equal(await fs.readFile(outside.file, 'utf8'), outside.original);
 });

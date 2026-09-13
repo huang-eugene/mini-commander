@@ -106,7 +106,14 @@ export function decodeTolerantly(raw: Buffer): string {
     text = raw.subarray(2).toString('utf16le');
   } else if (raw.length >= 2 && raw[0] === 0xfe && raw[1] === 0xff) {
     // UTF-16BE: swap the byte pairs, then decode as LE.
-    const swapped = Buffer.from(raw.subarray(2));
+    //
+    // Drop a trailing odd byte first. swap16() throws RangeError on a buffer
+    // that is not a whole number of 16-bit units, and this function reads a
+    // file the child made in a REAL shell — so the bytes are whatever landed
+    // there, including a truncated write. A throw here would come out of a
+    // step's done() and end the session.
+    const body = raw.subarray(2, raw.length - ((raw.length - 2) % 2));
+    const swapped = Buffer.from(body);
     swapped.swap16();
     text = swapped.toString('utf16le');
   } else if (raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) {

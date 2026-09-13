@@ -5,6 +5,17 @@ on:
     branches: ['**']
   pull_request:
 
+permissions:
+  contents: read
+
+# A branch with an open pull request matches both triggers above, which ran
+# the whole matrix twice over the same commit. Keying on the head SHA collapses
+# those two into one, and cancels a run that a newer push has already
+# superseded.
+concurrency:
+  group: ci-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   test:
     # Windows is not optional here: it is the only place the path jail's
@@ -15,7 +26,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ['20', '22', '24']
+        # Node 20 went end-of-life in April 2026. It is also the one version
+        # that cannot run `npm test`: glob patterns in `node --test` positional
+        # arguments need Node 22, and on 20 the command fails outright with
+        # "Could not find". See `engines` in package.json.
+        node: ['22', '24']
 
     steps:
       - uses: actions/checkout@v4

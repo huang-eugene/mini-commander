@@ -131,6 +131,15 @@ export async function loadSave(home: string, now = new Date()): Promise<SaveFile
     return freshSave(now);
   }
 
+  // Defensively, because a save that crashes the loader defeats the whole
+  // point of this function. Everything above is written to move a bad save
+  // aside and carry on, and then this loop assumed the file's shape: a save
+  // containing `"concepts": null` threw straight out of loadSave, past that
+  // recovery and past the caller.
+  if (typeof save.concepts !== 'object' || save.concepts === null) {
+    save.concepts = {};
+  }
+
   for (const id of Object.keys(save.concepts)) {
     save.concepts[id] = decay(save.concepts[id] ?? freshConceptState(), now);
   }

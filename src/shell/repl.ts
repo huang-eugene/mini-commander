@@ -39,6 +39,12 @@ export interface TerminalInputOptions {
   write(text: string): void;
   /** Called on the first Ctrl-C. A second one exits. */
   onInterrupt?: () => void;
+  /**
+   * The streams to talk over. Default to the real terminal; a test supplies
+   * its own so it can drive this for real rather than reaching into `process`.
+   */
+  input?: NodeJS.ReadableStream & { isTTY?: boolean };
+  output?: NodeJS.WritableStream;
 }
 
 export function makeTerminalInput(options: TerminalInputOptions): Input {
@@ -81,13 +87,16 @@ export function makeTerminalInput(options: TerminalInputOptions): Input {
     return [roomCache.filter((n) => n.startsWith(stem)).map((n) => prefix + n), last];
   };
 
+  const source = options.input ?? process.stdin;
+  const sink = options.output ?? process.stdout;
+
   const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+    input: source,
+    output: sink,
     completer,
     // Long enough that a child can scroll back through a whole session.
     historySize: 200,
-    terminal: process.stdin.isTTY === true,
+    terminal: source.isTTY === true,
   });
 
   let interrupted = false;
@@ -101,14 +110,47 @@ export function makeTerminalInput(options: TerminalInputOptions): Input {
     rl.prompt();
   });
 
+  /**
+   * Asks one question, resolving to undefined if the interface closes first
+   * (Ctrl-D, or a second Ctrl-C).
+   *
+   * ONE 'close' listener for the life of the interface, not one per question.
+   * Registering `rl.once('close', ...)` inside each ask added a listener that
+   * was only ever removed by the close that never came, so Node printed
+   *
+   *   MaxListenersExceededWarning: Possible EventEmitter memory leak detected.
+   *   11 close listeners added to [Interface].
+   *
+   * on the eleventh line of every real session — into the middle of a
+   * seven-year-old's game. Waiters are tracked here instead and released
+   * together when close does arrive.
+   */
+  let closed = false;
+  const waiting = new Set<(answer: string | undefined) => void>();
+
+  rl.on('close', () => {
+    closed = true;
+    for (const release of waiting) release(undefined);
+    waiting.clear();
+  });
+
+  const ask = async (prompt: string): Promise<string | undefined> => {
+    if (closed) return undefined;
+    return new Promise<string | undefined>((done) => {
+      waiting.add(done);
+      const settle = (answer: string | undefined): void => {
+        waiting.delete(done);
+        done(answer);
+      };
+      rl.question(prompt, settle);
+    });
+  };
+
   void refreshCache();
 
   return {
     async line(prompt) {
-      const answer = await new Promise<string | undefined>((done) => {
-        rl.question(prompt, (text) => done(text));
-        rl.once('close', () => done(undefined));
-      });
+      const answer = await ask(prompt);
 
       interrupted = false;
       await refreshCache();
@@ -122,10 +164,7 @@ export function makeTerminalInput(options: TerminalInputOptions): Input {
       write('\n');
 
       for (;;) {
-        const answer = await new Promise<string | undefined>((done) => {
-          rl.question(`(1-${choiceList.length}, or just press Enter) `, (text) => done(text));
-          rl.once('close', () => done(undefined));
-        });
+        const answer = await ask(`(1-${choiceList.length}, or just press Enter) `);
 
         if (answer === undefined) return '';
         const trimmed = answer.trim();

@@ -6,13 +6,17 @@
  * proven to sit inside the world root, nothing happens. There is no escape
  * hatch, no "trusted" caller, no absolute-path mode.
  *
- * The threats it is built against, each with a test in test/unit/fs-jail.test.ts:
+ * The threats it is built against. Every one of these has a test in
+ * test/unit/fs-jail.test.ts — that sentence used to be here while #15 had no
+ * test at all, which is exactly how #15 came to be enforced by code that could
+ * not fire. Do not add a line here without adding the test.
  *
  *   1. `..` climbing above the root                 -> vpath.resolve() clamps at root
  *   2. machine-absolute paths (`/etc/passwd`, `C:\`) -> treated as world-absolute
  *   3. UNC paths (`\\?\C:\`, `\\server\share`)       -> backslashes normalised, drive stripped
  *   4. `~` expansion to the real home                -> `~` means the world root
  *   5. symlink escape                                -> realpath check AFTER resolution
+ *   5a. DANGLING symlink escape                      -> lstat on the final component before opening
  *   6. symlink creation                              -> never implemented at all
  *   7. Windows reserved device names (CON, NUL, ...) -> rejected as names
  *   8. reserved/illegal characters in names          -> rejected
@@ -195,18 +199,43 @@ export class World {
   }
 
   /**
-   * A hard link has no symlink to follow — `realpath` returns the path itself,
-   * so the containment check passes while the inode is shared with a file
-   * outside the world. We never create links, but a grown-up experimenting in
-   * the world folder might, so refuse to write through one.
+   * The check every write must pass, on the exact path it is about to open.
+   *
+   * Two ways a link defeats `real()`, both of which need the final component
+   * inspected rather than resolved:
+   *
+   *   - A *dangling* symlink. `real()` walks up to the nearest **existing**
+   *     ancestor, and a broken link fails `realpath` itself, so the walk
+   *     climbs past it to the world root — which is of course inside. Then
+   *     `kindOf` uses `lstat` and reports 'nothing', the write path treats it
+   *     as a brand-new file, and `writeFile` follows the link and creates the
+   *     target wherever it points. `cat` and `ls` are safe because they only
+   *     ever read what `lstat` already refused to call a file.
+   *
+   *   - A *hard* link. There is nothing to follow: `realpath` returns the path
+   *     itself, so containment passes while the inode is shared with a file
+   *     outside the world.
+   *
+   * We never create either. A grown-up experimenting in the world folder, or
+   * anything else running as the same user, might.
+   *
+   * Note what this is NOT wrapped in. An earlier version put the whole body in
+   * a try/catch meant for "the file does not exist yet", and `outsideTheWorld`
+   * throws a ShellError — so the catch swallowed every refusal and the guard
+   * was inert for its entire life. The same mistake, in the same shape, is
+   * called out in `real()` above. Only the lstat is allowed to be caught, and
+   * only for ENOENT.
    */
-  private async assertNotHardLinked(real: string, command: string): Promise<void> {
+  private async assertSafeToOpen(real: string, command: string): Promise<void> {
+    let st;
     try {
-      const st = await fs.lstat(real);
-      if (st.isFile() && st.nlink > 1) outsideTheWorld(command);
+      st = await fs.lstat(real);
     } catch {
-      // Does not exist yet: nothing to share an inode with.
+      return; // Does not exist yet: no link to follow, no inode to share.
     }
+
+    if (st.isSymbolicLink()) outsideTheWorld(command);
+    if (st.isFile() && st.nlink > 1) outsideTheWorld(command);
   }
 
   private isInsideLexically(candidate: string): boolean {
@@ -347,16 +376,18 @@ export class World {
 
     const existing = await this.kindOf(vpath, command);
     if (existing === 'room') isARoom(command, basename(vpath));
+    const real = await this.real(vpath, command);
+    await this.assertSafeToOpen(real, command);
+
     if (existing === 'thing') {
       // Real `touch` updates the timestamp and says nothing. Same here.
-      const real = await this.real(vpath, command);
       const now = new Date();
       await fs.utimes(real, now, now);
       return 'touched';
     }
 
     await this.assertRoomForOneMore(command);
-    await fs.writeFile(await this.real(vpath, command), '', 'utf8');
+    await fs.writeFile(real, '', 'utf8');
     return 'created';
   }
 
@@ -376,10 +407,22 @@ export class World {
 
     const existing = await this.kindOf(vpath, command);
     if (existing === 'room') isARoom(command, basename(vpath));
-    if (existing === 'nothing') await this.assertRoomForOneMore(command);
 
     const real = await this.real(vpath, command);
-    await this.assertNotHardLinked(real, command);
+    await this.assertSafeToOpen(real, command);
+
+    // Only a write that GROWS the world needs the budget checked. Checking
+    // unconditionally would be correct but slow: measure() walks the whole
+    // tree, so every `echo >` would rescan up to MAX_FILES entries. Checking
+    // only on creation — which is what this used to do — let an existing file
+    // be refilled to MAX_FILE_BYTES for free, so 2000 files could reach 128MB
+    // against a documented 10MB cap.
+    const before = existing === 'thing' ? ((await fs.stat(real).catch(() => null))?.size ?? 0) : 0;
+    const after =
+      mode === 'append'
+        ? before + Buffer.byteLength(text, 'utf8')
+        : Buffer.byteLength(text, 'utf8');
+    if (after > before) await this.assertRoomForOneMore(command);
 
     if (mode === 'append') {
       const current = existing === 'thing' ? await fs.readFile(real, 'utf8') : '';
@@ -397,8 +440,11 @@ export class World {
     if ((await this.kindOf(to, command)) === 'room') isARoom(command, basename(to));
 
     await this.assertRoomForOneMore(command);
+    const destination = await this.real(to, command);
+    await this.assertSafeToOpen(destination, command);
+
     const text = await fs.readFile(await this.real(from, command), 'utf8');
-    await fs.writeFile(await this.real(to, command), text, 'utf8');
+    await fs.writeFile(destination, text, 'utf8');
   }
 
   async move(from: VPath, to: VPath, command: string): Promise<void> {

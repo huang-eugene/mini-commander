@@ -1,8 +1,11 @@
 mini-commander
 --------------
-Everything CHIP does happens inside
-<HOME>. Nothing outside that folder can
-be reached or changed from in here.
+Everything CHIP does happens inside this folder:
+
+<HOME>
+
+Nothing outside it can be reached or changed from in
+here.
 
 
 Hello, Explorer

@@ -375,18 +375,28 @@ export function findCommand(name: string, stage: number): Command | undefined {
  * Commands that exist in a real shell, are genuinely dangerous, and are
  * deliberately not implemented. Typing one gets "command not found" plus a
  * word from CHIP — never a lecture, and never a suggestion to try it.
+ *
+ * A Map, not an object literal, because this is indexed by whatever the child
+ * typed. An object literal inherits from Object.prototype, so `constructor`
+ * came back as a FUNCTION, passed the truthiness check, and reached
+ * screen.chip() — which crashed the session on `text.split is not a function`.
+ * That is not a ShellError, so it escaped runSession before the save was
+ * written, and the child lost the session's progress. `constructor` is the one
+ * reachable key: the lookup is lowercased, so `toString` and friends miss.
  */
-export const NOT_HERE: Record<string, string> = {
-  sudo: 'That one asks the computer for special powers. We do not need them in here.',
-  rmdir: 'I use rm for that, and my rm only ever recycles.',
-  chmod: 'That one changes who is allowed to touch things. Not today.',
-  kill: 'That one stops programs. Nothing in here needs stopping.',
-  rf: 'I do not have that one, and I am glad.',
-  del: 'I call that one rm.',
-  dir: 'I call that one ls.',
-  cls: 'I call that one clear.',
-  type: 'I call that one cat.',
-  man: 'I have no manual. Try help instead.',
-};
+export const NOT_HERE: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    sudo: 'That one asks the computer for special powers. We do not need them in here.',
+    rmdir: 'I use rm for that, and my rm only ever recycles.',
+    chmod: 'That one changes who is allowed to touch things. Not today.',
+    kill: 'That one stops programs. Nothing in here needs stopping.',
+    rf: 'I do not have that one, and I am glad.',
+    del: 'I call that one rm.',
+    dir: 'I call that one ls.',
+    cls: 'I call that one clear.',
+    type: 'I call that one cat.',
+    man: 'I have no manual. Try help instead.',
+  }),
+);
 
 export const isShellError = (e: unknown): e is ShellError => e instanceof ShellError;

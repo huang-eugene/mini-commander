@@ -35,6 +35,18 @@ export interface PlayOptions {
   seed?: number;
   /** Fixed clock. Defaults to a constant so transcripts never drift. */
   now?: Date;
+  /**
+   * Where the world lives. Defaults to a fresh temp directory; supplied only
+   * by the test that checks a transcript does not depend on the path's length.
+   */
+  home?: string;
+  /**
+   * Throw a plain (non-ShellError) Error from the Nth call to screen.chip, to
+   * stand in for something unexpected going wrong deep in a session — the way
+   * decodeTolerantly's RangeError can from inside a step's done(). Used only
+   * by the test that a crash still banks the child's progress.
+   */
+  breakAfterChips?: number;
 }
 
 export interface PlayResult {
@@ -55,7 +67,7 @@ export async function makeTempHome(prefix = 'mc-test-'): Promise<string> {
 
 /** Plays a whole session and returns the transcript. */
 export async function play(options: PlayOptions): Promise<PlayResult> {
-  const home = await makeTempHome();
+  const home = options.home ?? (await makeTempHome());
   const world = await World.open(nodePath.join(home, 'chip-world'), home);
 
   const theme = makeTheme({ colour: false, ascii: true });
@@ -65,6 +77,17 @@ export async function play(options: PlayOptions): Promise<PlayResult> {
   };
 
   const screen = makeScreen({ theme, write });
+
+  if (options.breakAfterChips !== undefined) {
+    const realChip = screen.chip.bind(screen);
+    let chips = 0;
+    screen.chip = (lines): void => {
+      chips += 1;
+      if (chips === options.breakAfterChips) throw new RangeError('deliberate test crash');
+      realChip(lines);
+    };
+  }
+
   const input = makeScriptedInput(options.inputs, write);
 
   const save = options.save ?? (await loadSave(home, options.now ?? FIXED_NOW));
@@ -149,13 +172,33 @@ const TRANSCRIPT_DIR = nodePath.join(process.cwd(), 'test', 'transcripts');
  * releases.
  *
  * The temp directory path is scrubbed, since it changes every run.
+ *
+ * Both spellings of it, because they are not always the same string. The jail
+ * resolves its root with realpath, and on macOS os.tmpdir() sits under /var,
+ * which is a symlink to /private/var — so anything the game prints from
+ * `world.rootReal` carries the /private form while `home` does not. Scrubbing
+ * only one of them leaves a machine-specific path in the golden.
+ *
+ * Note that scrubbing happens after rendering, so it can only make a path
+ * stable, never its LENGTH. Nothing may print a temp path inside prose that
+ * gets wrapped — see the welcome block in session.ts.
  */
+export async function scrubHome(transcript: string, home: string): Promise<string> {
+  const realHome = await fs.realpath(home).catch(() => home);
+  // Longest first, so the /private form is replaced before its prefix is.
+  const paths = [...new Set([home, realHome])].sort((a, b) => b.length - a.length);
+
+  let scrubbed = transcript;
+  for (const path of paths) scrubbed = scrubbed.split(path).join('<HOME>');
+  return scrubbed;
+}
+
 export async function matchGolden(
   name: string,
   transcript: string,
   home: string,
 ): Promise<{ ok: boolean; expected?: string; actual: string }> {
-  const scrubbed = transcript.split(home).join('<HOME>');
+  const scrubbed = await scrubHome(transcript, home);
   const file = nodePath.join(TRANSCRIPT_DIR, `${name}.txt`);
 
   if (process.env.UPDATE_TRANSCRIPTS === '1') {
