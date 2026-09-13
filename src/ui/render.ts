@@ -40,9 +40,54 @@ export interface ScreenOptions {
   roomy?: boolean;
 }
 
+/**
+ * Control characters that must never reach the terminal.
+ *
+ * C0 (minus tab), DEL, and C1 — which is where ESC lives, and therefore every
+ * ANSI escape sequence. Newline is included because every writer here emits
+ * its own line breaks; a stray one inside a value would break a speech box
+ * open or push output outside a frame.
+ */
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f]/g;
+
+/**
+ * Makes one piece of text safe to print.
+ *
+ * checkName() in the jail rejects control characters on the way IN, but names
+ * already on disk never pass through it — `list()` hands back whatever readdir
+ * returned, and `read()` hands back whatever bytes the file holds. Both go
+ * straight to the terminal via `ls` and `cat`. The graduation missions send the
+ * child to a REAL shell to create files in that same folder, so "the game wrote
+ * everything in here" was never true.
+ *
+ * Left alone, a filename or a file's contents could recolour the screen, set
+ * the window title, or clear it — in a game whose entire premise is that the
+ * child can trust what CHIP prints. Colour is the theme's job, applied after
+ * this, so stripping here costs nothing the game was using.
+ *
+ * Replaced rather than deleted: a child who made a file with an odd byte in it
+ * should see that something is there.
+ */
+export function printable(text: string): string {
+  return text.replace(CONTROL_CHARACTERS, '?');
+}
+
+/**
+ * True when text still carries something `printable` would strip.
+ *
+ * Exported so tests can assert the property without restating the character
+ * range — two copies of a pattern like this drift, and the copy in the test is
+ * the one that would quietly stop matching.
+ */
+export function hasControlCharacters(text: string): boolean {
+  return new RegExp(CONTROL_CHARACTERS.source).test(text);
+}
+
 /** Breaks text into lines no longer than `width`, never mid-word. */
 export function wrap(text: string, width: number): string[] {
-  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  const words = printable(text)
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
   if (words.length === 0) return [''];
 
   const lines: string[] = [];
@@ -95,13 +140,16 @@ export function makeScreen(options: ScreenOptions): Screen {
     },
 
     output(input) {
-      const lines = Array.isArray(input) ? input : [input];
+      // The big one: `cat` prints file contents and `ls` prints names straight
+      // from readdir, neither of which the jail's checkName ever saw.
+      const lines = (Array.isArray(input) ? input : [input]).map(printable);
       for (const line of lines) writeLine(theme.output(line));
       if (roomy && lines.length > 0) writeLine('');
     },
 
     error(text) {
-      writeLine(theme.error(text));
+      // Error text quotes back what the child typed, verbatim and on purpose.
+      writeLine(theme.error(printable(text)));
       if (roomy) writeLine('');
     },
 
@@ -110,7 +158,7 @@ export function makeScreen(options: ScreenOptions): Screen {
     },
 
     command(text) {
-      writeLine('   ' + theme.command(text));
+      writeLine('   ' + theme.command(printable(text)));
       if (roomy) writeLine('');
     },
 
@@ -141,8 +189,9 @@ export function makeScreen(options: ScreenOptions): Screen {
     },
 
     heading(text) {
-      writeLine(theme.heading(text));
-      writeLine(theme.dim(g.boxHorizontal.repeat(text.length)));
+      const safe = printable(text);
+      writeLine(theme.heading(safe));
+      writeLine(theme.dim(g.boxHorizontal.repeat(safe.length)));
     },
 
     note(text) {
