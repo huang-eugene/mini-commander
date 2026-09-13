@@ -138,3 +138,39 @@ test('running a room, or something absent, gives the real error', async () => {
     await shell.cleanup();
   }
 });
+
+test('a quoted run is still a run', async () => {
+  // The guard used to split the raw line and compare the first word, so
+  // `"run"` did not match it — while the lexer stripped the quotes and the
+  // dispatcher ran it as `run`. A spell naming itself that way recursed
+  // without limit, because MAX_SPELL_STEPS counts one invocation only.
+  const shell = await makeShell();
+  try {
+    await shell.run('echo "run" loop.spell > loop.spell');
+    await shell.run('run loop.spell');
+
+    assert.match(shell.output(), /a spell cannot run another spell/);
+  } finally {
+    await shell.cleanup();
+  }
+});
+
+test('a spell that calls itself terminates instead of hanging', async () => {
+  // The property the guard exists for, stated directly: whatever spelling a
+  // spell uses to name `run`, the game must come back.
+  const shell = await makeShell();
+  try {
+    await shell.run('echo echo still here > loop.spell');
+    await shell.run('echo "RUN" loop.spell >> loop.spell');
+
+    const finished = await Promise.race([
+      shell.run('run loop.spell').then(() => true),
+      new Promise<boolean>((done) => setTimeout(() => done(false), 5000)),
+    ]);
+
+    assert.equal(finished, true, 'running a self-referencing spell must terminate');
+    assert.match(shell.output(), /a spell cannot run another spell/);
+  } finally {
+    await shell.cleanup();
+  }
+});

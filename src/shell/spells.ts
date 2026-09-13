@@ -19,6 +19,7 @@
  * can go and look at.
  */
 
+import { parseLine } from './lexer.js';
 import type { Screen } from '../ui/render.js';
 import type { EventBus } from '../engine/events.js';
 import type { World } from './fs-jail.js';
@@ -60,7 +61,50 @@ export interface RunSpellOptions {
   lastFailed(): boolean;
 }
 
+/**
+ * The command word as the dispatcher will see it, or undefined when the line
+ * does not parse. A line that will not parse cannot be a `run`, and letting it
+ * through means the child gets the lexer's real error about what they actually
+ * typed, which is the better message.
+ */
+function commandWordOf(line: string): string | undefined {
+  try {
+    return parseLine(line)?.name;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Depth, not a boolean, purely so the invariant is stated as what it is: a
+ * spell never runs while a spell is running.
+ *
+ * The check above is the one that produces a good error, pointing at the line
+ * the child can go and count to. This is the backstop that makes the claim
+ * structural — it holds no matter what the lexer, the command table, or a
+ * future `run`-like command does, which the previous string comparison did
+ * not.
+ */
+let depth = 0;
+
 export async function runSpell(options: RunSpellOptions): Promise<SpellResult> {
+  const { screen, bus, path } = options;
+
+  if (depth > 0) {
+    screen.error('run: a spell cannot run another spell');
+    bus.emit({ kind: 'program-run', path, lines: 0, failedLine: 1 });
+    return { ran: 0, failedLine: 1 };
+  }
+
+  depth += 1;
+  try {
+    return await runSpellLines(options);
+  } finally {
+    depth -= 1;
+  }
+}
+
+async function runSpellLines(options: RunSpellOptions): Promise<SpellResult> {
   const { world, screen, bus, path, submit, lastFailed } = options;
 
   const text = await world.read(path, 'run');
@@ -85,7 +129,15 @@ export async function runSpell(options: RunSpellOptions): Promise<SpellResult> {
 
     // A spell may not call another spell. No recursion means no cycles, no
     // depth limit to explain, and no way to hang the game.
-    if (line.text.split(/\s+/)[0]?.toLowerCase() === 'run') {
+    //
+    // Ask the LEXER what the command word is, rather than splitting the raw
+    // text. Splitting compared the line as typed, so `"run" other.spell` read
+    // as `"run"` here and did not match — while the lexer stripped the quotes
+    // and the dispatcher ran it as `run`. One spell calling itself that way
+    // recursed without limit (MAX_SPELL_STEPS is per invocation) until the
+    // game hung. There is exactly one parser in this game and this check now
+    // uses it.
+    if (commandWordOf(line.text) === 'run') {
       screen.error(`run: line ${line.number}: a spell cannot run another spell`);
       bus.emit({ kind: 'program-run', path, lines: lines.length, failedLine: line.number });
       return { ran, failedLine: line.number };
