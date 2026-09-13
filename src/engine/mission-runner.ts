@@ -115,6 +115,17 @@ export class MissionRunner {
     const scaffold = this.deps.learner.scaffoldFor(step.concepts);
     this.deps.screen.chip(step.prompt[scaffold]);
 
+    // A runtime instruction card, for the graduation missions that have to
+    // name the real folder on this machine.
+    if (step.card) {
+      const lines = await step.card({
+        world: this.deps.world,
+        cwd: this.deps.state.cwd,
+        anchor: this.anchor,
+      });
+      for (const line of lines) this.deps.screen.command(line);
+    }
+
     if (step.predict) await this.askPrediction(step);
   }
 

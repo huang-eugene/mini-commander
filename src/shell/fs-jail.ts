@@ -293,6 +293,23 @@ export class World {
     return entries;
   }
 
+  /**
+   * Raw bytes, for a file the child may have written in a REAL shell.
+   *
+   * The graduation missions need this: PowerShell 5.1 writes redirected
+   * output as UTF-16LE with a BOM, so a utf8 read would mangle it. Decoding
+   * lives in missions/graduation.ts; the jail keeps the only filesystem
+   * access, which is what makes the containment claim a property of the code
+   * rather than a promise.
+   *
+   * Returns undefined rather than throwing when it is not there, because the
+   * caller is asking "did they do it yet?".
+   */
+  async readBytes(vpath: VPath, command: string): Promise<Buffer | undefined> {
+    if ((await this.kindOf(vpath, command)) !== 'thing') return undefined;
+    return fs.readFile(await this.real(vpath, command));
+  }
+
   async read(vpath: VPath, command: string): Promise<string> {
     const kind = await this.kindOf(vpath, command);
     if (kind === 'nothing') noSuchThing(command, basename(vpath));

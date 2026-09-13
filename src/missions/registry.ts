@@ -25,6 +25,7 @@ import { m16 } from './m16-the-envelope.js';
 import { m17 } from './m17-is-anybody-there.js';
 import { m18 } from './m18-names-and-numbers.js';
 import { m19 } from './m19-the-long-journey.js';
+import { g01 } from './g01-real-control-room.js';
 
 export const MISSIONS: readonly Mission[] = [
   m01,
@@ -46,6 +47,7 @@ export const MISSIONS: readonly Mission[] = [
   m17,
   m18,
   m19,
+  g01,
 ];
 
 const BY_ID = new Map(MISSIONS.map((m) => [m.id, m]));

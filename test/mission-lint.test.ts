@@ -223,11 +223,14 @@ test('every concept is taught once and practised again later', () => {
     }
   }
 
-  // The final mission is exempt: whatever it introduces has nothing after it
-  // by definition, and that is a fact about the end of the curriculum rather
-  // than a defect. Every other concept must come back.
-  const last = MISSIONS[MISSIONS.length - 1];
-  const exempt = new Set<string>(last?.teaches ?? []);
+  // The last mission that introduces anything is exempt: whatever it teaches
+  // has nothing after it by definition, and that is a fact about the end of a
+  // curriculum rather than a defect. Note it is the last mission that TEACHES,
+  // not simply the last mission — the graduation missions teach no new
+  // concepts, and keying off them would strip the exemption from the mission
+  // that actually needs it.
+  const lastTeaching = [...MISSIONS].reverse().find((m) => m.teaches.length > 0);
+  const exempt = new Set<string>(lastTeaching?.teaches ?? []);
 
   for (const [id, missions] of taughtBy) {
     if (exempt.has(id)) continue;

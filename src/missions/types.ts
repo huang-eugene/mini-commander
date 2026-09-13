@@ -76,6 +76,15 @@ export interface Step {
   /** Asked before the command runs, when present. */
   predict?: Prediction;
 
+  /**
+   * Extra lines shown after the prompt, computed at runtime.
+   *
+   * Exists for the graduation missions, whose instruction card has to name
+   * the real folder on this machine — something no static string can know.
+   * Each entry is rendered as a command for the child to type.
+   */
+  card?(ctx: StepContext): Promise<string[]> | string[];
+
   /** True when this event (or the world it left behind) completes the step. */
   done(event: ShellEvent, ctx: StepContext): boolean | Promise<boolean>;
 

@@ -50,7 +50,8 @@
     "selfcheck": "npm run build && node bin/mini-commander.js --self-check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepublishOnly": "npm run build && npm run test",
+    "docs": "npm run build && node scripts/build-docs.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
