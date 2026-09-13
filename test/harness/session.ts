@@ -40,6 +40,13 @@ export interface PlayOptions {
    * by the test that checks a transcript does not depend on the path's length.
    */
   home?: string;
+  /**
+   * Throw a plain (non-ShellError) Error from the Nth call to screen.chip, to
+   * stand in for something unexpected going wrong deep in a session — the way
+   * decodeTolerantly's RangeError can from inside a step's done(). Used only
+   * by the test that a crash still banks the child's progress.
+   */
+  breakAfterChips?: number;
 }
 
 export interface PlayResult {
@@ -70,6 +77,17 @@ export async function play(options: PlayOptions): Promise<PlayResult> {
   };
 
   const screen = makeScreen({ theme, write });
+
+  if (options.breakAfterChips !== undefined) {
+    const realChip = screen.chip.bind(screen);
+    let chips = 0;
+    screen.chip = (lines): void => {
+      chips += 1;
+      if (chips === options.breakAfterChips) throw new RangeError('deliberate test crash');
+      realChip(lines);
+    };
+  }
+
   const input = makeScriptedInput(options.inputs, write);
 
   const save = options.save ?? (await loadSave(home, options.now ?? FIXED_NOW));

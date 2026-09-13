@@ -174,26 +174,52 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
   });
 
   noteVisit(save, state.cwd);
-  await runner.begin();
 
-  // The main loop. Every line goes to the dispatcher, every event to the
-  // runner. The runner decides when the mission is over; nothing else does.
-  while (!quitEarly && !runner.done) {
-    // A command typed at a prediction prompt is held rather than swallowed.
-    const deferred = runner.takeDeferred();
-    const line = deferred ?? (await input.line(promptFor(state.cwd)));
-    if (line === undefined) break;
+  /**
+   * Whatever happens in here, the child keeps what they did.
+   *
+   * The save is written exactly once, at the end of this function, so any
+   * unexpected throw between here and there used to lose the whole sitting —
+   * no save.json, no journal.md. Not a theoretical shape of bug: typing
+   * `constructor` did exactly that until recently, and a stray byte in a file
+   * the child made in a real terminal could still do it through
+   * decodeTolerantly.
+   *
+   * So an unexpected error ends the session rather than aborting it. The
+   * progress is banked first, then the error is rethrown for bin/ to report —
+   * which is what "Tell a grown-up" there has always implied happens.
+   *
+   * The trade is deliberate: banking after a crash can record a slightly wrong
+   * hintsUsed. The save is counters and arrays and writeSave is atomic (temp
+   * file, rename, .bak), so the worst case is a number being off by one. Set
+   * against a seven-year-old losing their badges, that is not a close call —
+   * save.ts says as much in its own header.
+   */
+  let crash: unknown;
+  try {
+    await runner.begin();
 
-    const events: number = bus.history().length;
-    const ran = await dispatcher.submit(line);
-    if (!ran) continue;
+    // The main loop. Every line goes to the dispatcher, every event to the
+    // runner. The runner decides when the mission is over; nothing else does.
+    while (!quitEarly && !runner.done) {
+      // A command typed at a prediction prompt is held rather than swallowed.
+      const deferred = runner.takeDeferred();
+      const line = deferred ?? (await input.line(promptFor(state.cwd)));
+      if (line === undefined) break;
 
-    for (const event of bus.history().slice(events)) {
-      const { missionDone, stepAdvanced } = await runner.handle(event);
-      // Stop at the first event that advanced the step: the rest of this
-      // line's events belong to the step we just left, not the new one.
-      if (missionDone || stepAdvanced) break;
+      const events: number = bus.history().length;
+      const ran = await dispatcher.submit(line);
+      if (!ran) continue;
+
+      for (const event of bus.history().slice(events)) {
+        const { missionDone, stepAdvanced } = await runner.handle(event);
+        // Stop at the first event that advanced the step: the rest of this
+        // line's events belong to the step we just left, not the new one.
+        if (missionDone || stepAdvanced) break;
+      }
     }
+  } catch (err) {
+    crash = err;
   }
 
   const outcome = runner.outcome();
@@ -214,7 +240,9 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
 
   if (outcome.completed) {
     const announcements = awardMission(save, mission, now());
-    for (const award of announcements) screen.celebrate(award.title, award.detail);
+    // Nothing that draws runs after a crash: the screen may well be what
+    // threw, and celebrating a session that just fell over would be strange.
+    if (!crash) for (const award of announcements) screen.celebrate(award.title, award.detail);
 
     // Unlock the next stage's vocabulary only after finishing its missions,
     // so the command list grows at the pace of the story.
@@ -222,14 +250,23 @@ export async function runSession(deps: SessionDeps): Promise<SessionResult> {
     if (nextStage > save.stage && nextStage <= 8) save.stage = nextStage;
   }
 
-  const farewell = chip.say('goodbye');
-  if (farewell) screen.chip(farewell);
+  if (!crash) {
+    const farewell = chip.say('goodbye');
+    if (farewell) screen.chip(farewell);
+  }
 
-  await finishUp(deps, {
-    startedAt,
-    missions: [mission.id],
-    notes: buildNotes(mission.title, outcome, learner),
-  });
+  const notes = buildNotes(mission.title, outcome, learner);
+  if (crash) {
+    // The grown-up's journal is where this belongs. A child should not be told
+    // the game broke in the middle of their session; an adult reading back
+    // should.
+    notes.push('The game hit a problem and stopped early. Progress up to then was kept.');
+  }
+
+  await finishUp(deps, { startedAt, missions: [mission.id], notes });
+
+  // Banked. Now let it out, so bin/ can print the real error for a grown-up.
+  if (crash) throw crash;
 
   return { missionId: mission.id, completed: outcome.completed, quitEarly };
 }

@@ -138,3 +138,23 @@ test('each platform is told what to open and how', () => {
   assert.match(howToOpen('darwin').join(' '), /Command/);
   assert.ok(howToOpen('linux').length > 0);
 });
+
+test('a truncated UTF-16 file does not throw', async () => {
+  // These bytes come from a file the child made in a REAL shell, so they are
+  // whatever landed on disk — including a write that was cut short. swap16()
+  // throws RangeError on a buffer that is not a whole number of 16-bit units,
+  // and this runs inside a step's done(), so a throw would end the session.
+  const oddBE = Buffer.from([0xfe, 0xff, 0x00, 0x68, 0x00, 0x69, 0x21]);
+  assert.equal(decodeTolerantly(oddBE), 'hi');
+
+  const oddLE = Buffer.from([0xff, 0xfe, 0x68, 0x00, 0x69, 0x00, 0x21]);
+  assert.doesNotThrow(() => decodeTolerantly(oddLE));
+
+  // And the degenerate cases, since a file can be any length at all.
+  for (const bytes of [[], [0xfe], [0xfe, 0xff], [0xff, 0xfe], [0xef, 0xbb], [0xef, 0xbb, 0xbf]]) {
+    assert.doesNotThrow(
+      () => decodeTolerantly(Buffer.from(bytes)),
+      `threw on ${JSON.stringify(bytes)}`,
+    );
+  }
+});
